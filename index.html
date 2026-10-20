@@ -1,0 +1,494 @@
+<title>Spatial Equilibrium Interactive Tool</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Public+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab notebook — tab per problem; left column = the model's steps and controls, right column = live charts that re-solve on every slider move. */
+:root{
+  --bg:#f3f5f4; --surface:#ffffff; --fg:#1d2422; --muted:#5d6966; --line:#d6dddb; --soft:#e8eceb;
+  --accent:#1f6f78;
+  --normal:#3a5a98; --preserve:#2e7d4f; --preserve-tint:#dcecdf; --land:#eceee9;
+  --gotham:#5a48b5; --styx:#c06a12; --ink:#2a2f2e;
+  --good:#2e7d4f; --warn:#a15c00; --ext:#9c3d6b; --ext-tint:#f7edf2;
+  --f-display:"Newsreader", Georgia, "Times New Roman", serif;
+  --f-body:"Public Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#141917; --surface:#1c2220; --fg:#e4ebe8; --muted:#9aa8a4; --line:#33403c; --soft:#252d2a;
+  --accent:#5cbcc5; --normal:#86a6e6; --preserve:#6cc58f; --preserve-tint:#1f3326; --land:#222826;
+  --gotham:#a698f0; --styx:#f0a05a; --ink:#e4ebe8; --good:#6cc58f; --warn:#f0b35a; --ext:#e891b8; --ext-tint:#2a1e24; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#141917; --surface:#1c2220; --fg:#e4ebe8; --muted:#9aa8a4; --line:#33403c; --soft:#252d2a;
+  --accent:#5cbcc5; --normal:#86a6e6; --preserve:#6cc58f; --preserve-tint:#1f3326; --land:#222826;
+  --gotham:#a698f0; --styx:#f0a05a; --ink:#e4ebe8; --good:#6cc58f; --warn:#f0b35a; --ext:#e891b8; --ext-tint:#2a1e24; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+header h1{font-family:var(--f-display);font-weight:600;font-size:clamp(26px,4vw,36px);margin:0;text-wrap:balance;letter-spacing:-0.01em}
+header p{margin:4px 0 0;color:var(--muted);max-width:70ch}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+.tab{font:inherit;font-weight:600;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer}
+.tab[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--accent)}
+.tab:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.grid{display:grid;grid-template-columns:minmax(0,400px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:860px){.grid{grid-template-columns:minmax(0,1fr)}}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;min-width:0}
+.panel h2{font-family:var(--f-display);font-weight:600;font-size:19px;margin:0 0 8px}
+.panel h3{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:600}
+ol.steps{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:2px;counter-reset:s}
+ol.steps li{counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:8px;padding:8px 6px;border-radius:6px}
+ol.steps li::before{content:counter(s);font-family:var(--f-mono);font-size:12px;color:var(--accent);border:1px solid var(--accent);border-radius:50%;width:22px;height:22px;display:grid;place-items:center;margin-top:1px}
+ol.steps li b{display:block}
+ol.steps li span{color:var(--muted);font-size:13.5px}
+ol.steps li em{font-style:normal;color:var(--fg);font-weight:500}
+.ctl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:6px 0;border-top:1px solid var(--soft)}
+.ctl:first-of-type{border-top:0}
+.ctl label{font-size:13.5px}
+.ctl output{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.ctl input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.ctl .hint{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.check{display:flex;gap:8px;align-items:center;font-size:13.5px;padding:6px 0}
+.seg{display:flex;gap:0;border:1px solid var(--line);border-radius:6px;overflow:hidden;width:max-content}
+.seg button{font:inherit;font-size:13px;background:none;border:0;padding:5px 10px;color:var(--muted);cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.group{display:flex;flex-direction:column;padding:8px 12px 10px;border-radius:8px;margin-top:10px}
+.group.main{border:1.5px solid var(--accent)}
+.group.ext{border:1.5px dashed var(--ext);background:var(--ext-tint)}
+.ghead{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:2px 0 6px}
+.gnote{font-size:12px;color:var(--muted)}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;vertical-align:1px;margin-left:4px}
+.tag.main{background:var(--accent);color:var(--surface)}
+.tag.ext{border:1px dashed var(--ext);color:var(--ext)}
+ol.steps li span.tag{font-size:10.5px;color:var(--ext)}
+ol.steps li.extstep{background:var(--ext-tint);border:1px dashed var(--ext)}
+ol.steps li.extstep::before{color:var(--ext);border-color:var(--ext)}
+.extnote{margin:10px 0 0;padding:7px 12px;border:1.5px dashed var(--ext);background:var(--ext-tint);border-radius:6px;font-size:13.5px;display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+.extnote b{color:var(--ext)}
+.btn{font:inherit;font-size:13px;padding:5px 10px;background:none;color:var(--fg);border:1px solid var(--line);border-radius:6px;cursor:pointer}
+.btn.ext{border-color:var(--ext);color:var(--ext)}
+.legendnote{font-size:12.5px;color:var(--muted);margin:0 0 6px}
+.chip{display:inline-block;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;border:1px solid currentColor}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px}
+.readout div{display:flex;flex-direction:column}
+.readout small{font-size:11.5px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.readout strong{font-family:var(--f-mono);font-weight:500;font-size:17px;font-variant-numeric:tabular-nums}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+svg.chart{width:100%;height:auto;display:block}
+svg.chart text{fill:var(--muted);font-family:var(--f-body);font-size:11px}
+svg.chart .ttl{fill:var(--fg);font-size:12.5px;font-weight:600}
+svg.chart .grid line{stroke:var(--soft)}
+svg.chart .axis{stroke:var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12px;color:var(--muted);margin-top:4px}
+.legend i{display:inline-block;width:14px;height:3px;vertical-align:middle;margin-right:5px;border-radius:2px}
+.foot{display:flex;flex-direction:column;gap:6px;align-items:center}
+canvas{width:100%;max-width:420px;aspect-ratio:1;height:auto;display:block}
+.insight{border-left:3px solid var(--accent);padding:6px 12px;background:var(--soft);border-radius:0 6px 6px 0;font-size:14px}
+.cities{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:480px){.cities{grid-template-columns:1fr}}
+.city{border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.city h4{margin:0 0 6px;font-family:var(--f-display);font-size:18px;font-weight:600}
+.city dl{display:grid;grid-template-columns:1fr auto;gap:2px 8px;margin:0;font-size:13px}
+.city dt{color:var(--muted)} .city dd{margin:0;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tele{text-align:center;font-size:13px;color:var(--muted);margin-top:8px}
+.eq{font-family:var(--f-mono);font-size:12.5px;background:var(--soft);padding:8px 10px;border-radius:6px;overflow-x:auto;white-space:pre}
+details summary{cursor:pointer;font-weight:600;font-size:14px}
+</style>
+
+<div class="wrap">
+<header>
+  <h1>Spatial Equilibrium Interactive Tool</h1>
+  <p>Interactive versions of the two take-home models. Each slider re-solves the full equilibrium, so you can see which assumption drives which result.</p>
+</header>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" id="tab1" aria-selected="true" aria-controls="p1">Problem 1 · Nature preserve</button>
+  <button class="tab" role="tab" id="tab2" aria-selected="false" aria-controls="p2">Problem 2 · Gotham &amp; Styx</button>
+</div>
+
+<!-- ============ PROBLEM 1 ============ -->
+<section id="p1" role="tabpanel" aria-labelledby="tab1">
+<div class="grid">
+  <div class="col">
+    <div class="panel">
+      <h2>What the model is doing</h2>
+      <p class="legendnote">Steps 1–6 are the main model (Part A, then Part B). Items tagged <span class="tag ext">extension</span> or <span class="tag ext">robustness</span> are add-ons.</p>
+      <ol class="steps">
+        <li><div><b>Consumers pick housing.</b><span>Commute cost depends only on distance <i>x</i>, so a family 5 km out pays the same price per sq ft in either half. <em>Try: raise the preserve cost. The housing price chart has one line and it never splits. Then raise the preserve commute cost: now it does.</em></span></div></li>
+        <li><div><b>Developers pick building height.</b><span>In the preserve, capital costs more, so developers build shorter (lower <i>S</i>). Less floor space per acre means they can pay less for land.</span></div></li>
+        <li><div><b>Land rent sets the edge.</b><span>Each half ends where land rent falls to agricultural rent <i>r<sub>A</sub></i>. The preserve's rent is lower, so its edge comes sooner.</span></div></li>
+        <li><div><b>Density follows.</b><span>Lots are the same size in both halves, but buildings are shorter in the preserve, so fewer people per acre.</span></div></li>
+        <li><div><b>Everyone lives somewhere.</b><span>With a fixed population, utility <i>u</i> adjusts until the two halves together house everyone. <em>Try: raise the population.</em></span></div></li>
+        <li><div><b>Part B: finite preserve.</b><span>Beyond radius <i>x<sub>R</sub></i> the land is unrestricted again, so land rent jumps up there. <em>Try x<sub>R</sub> ≈ 14.5 for leapfrog development, or 7 for a seam.</em></span></div></li>
+        <li class="extstep"><div><b>Amenity <span class="tag ext">extension</span></b><span>If living by nature is pleasant, preserve-side housing commands a premium. Past a threshold the city tilts toward the preserve.</span></div></li>
+        <li class="extstep"><div><b>Costlier roads <span class="tag ext">robustness</span></b><span>Relaxes Brueckner's equal-commute-cost assumption. If each km through the preserve costs more to travel, the housing price curve splits and the preserve side shrinks further.</span></div></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Controls</h3>
+      <div class="group main"><div class="ghead"><span class="tag main" style="margin-left:0">Main model</span><span class="gnote">What the exam asks: Part A, then Part B</span></div>
+      <div class="ctl"><label for="iP">Preserve construction cost, <i>i<sub>P</sub>/i<sub>U</sub></i></label><output id="iPo"></output>
+        <input type="range" id="iP" min="1" max="3" step="0.05" value="1.6"><span class="hint">1 = no extra cost (symmetric city)</span></div>
+      <div class="ctl"><label for="Lp">Population <i>L</i></label><output id="Lpo"></output>
+        <input type="range" id="Lp" min="1000" max="6000" step="100" value="3000"></div>
+      <div class="ctl"><label for="tc">Commute cost <i>t</i> (share of income per km)</label><output id="tco"></output>
+        <input type="range" id="tc" min="0.01" max="0.04" step="0.001" value="0.02"></div>
+      <div class="check"><input type="checkbox" id="finite"><label for="finite">Part B: preserve stops at a fixed radius</label></div>
+      <div class="ctl" id="xRrow"><label for="xR">Preserve radius <i>x<sub>R</sub></i> (km)</label><output id="xRo"></output>
+        <input type="range" id="xR" min="1" max="22" step="0.1" value="14.5"></div>
+      </div>
+      <div class="group ext"><div class="ghead"><span class="tag ext" style="margin-left:0">Extensions &amp; robustness</span><span class="gnote">Not in the main results. Leave at 1 to match the paper.</span></div>
+      <div class="ctl"><label for="am">Extension: amenity of living in preserve, <i>a</i></label><output id="amo"></output>
+        <input type="range" id="am" min="1" max="1.2" step="0.002" value="1"><span class="hint">Main model: 1 (no amenity). Threshold for a bigger preserve side: <span id="astar"></span></span></div>
+      <div class="ctl"><label for="tP">Robustness: commute cost through the preserve, <i>t<sub>P</sub>/t<sub>U</sub></i></label><output id="tPo"></output>
+        <input type="range" id="tP" min="1" max="2.5" step="0.05" value="1"><span class="hint">Main model: 1 (Brueckner's equal commute cost). Raise it for roads that cost more per km in the preserve.</span></div>
+      </div>
+      <div class="ctl" style="border-top:0;margin-top:10px"><button class="btn" id="reset1">Reset to the paper's example</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">Equilibrium</h2><span class="chip" id="regime1"></span>
+      </div>
+      <div class="readout" style="margin-top:10px">
+        <div><small>Unrestricted edge x̄<sub>U</sub></small><strong id="oxN"></strong></div>
+        <div><small>Preserve edge x̄<sub>P</sub></small><strong id="oxP"></strong></div>
+        <div><small>Utility u</small><strong id="ou"></strong></div>
+        <div><small>Share in preserve side</small><strong id="osh"></strong></div>
+      </div>
+      <p class="insight" id="insight1" style="margin:12px 0 0"></p>
+      <div class="extnote" id="ext1" hidden><span id="ext1txt"></span><button class="btn ext" id="main1">Back to main model</button></div>
+    </div>
+    <div class="panel foot">
+      <h3 style="align-self:flex-start">City footprint (seen from above)</h3>
+      <canvas id="fp" width="420" height="420" aria-label="Map of the city footprint colored by population density"></canvas>
+      <div class="legend"><span><i style="background:var(--preserve-tint);height:10px"></i>undeveloped preserve</span><span><i style="background:var(--land);height:10px"></i>farmland</span><span>color = population density (brighter = denser)</span><span>★ CBD</span></div>
+    </div>
+    <div class="charts">
+      <div class="panel"><svg class="chart" id="c_p" viewBox="0 0 340 220"></svg></div>
+      <div class="panel"><svg class="chart" id="c_r" viewBox="0 0 340 220"></svg>
+        <div class="legend"><span><i style="background:var(--normal)"></i>unrestricted ray</span><span><i style="background:var(--preserve)"></i>preserve ray</span><span><i style="background:var(--muted)"></i>r<sub>A</sub></span></div></div>
+      <div class="panel"><svg class="chart" id="c_d" viewBox="0 0 340 220"></svg>
+        <div class="legend"><span><i style="background:var(--normal)"></i>unrestricted ray</span><span><i style="background:var(--preserve)"></i>preserve ray</span></div></div>
+      <div class="panel"><svg class="chart" id="c_s" viewBox="0 0 340 220"></svg>
+        <div class="legend"><span><i style="background:var(--normal)"></i>unrestricted ray</span><span><i style="background:var(--preserve)"></i>preserve ray</span></div></div>
+    </div>
+    <div class="panel">
+      <details><summary>The equations behind it</summary>
+<div class="eq">Consumers:   v(y − tx − p q, q) = u,   v₂/v₁ = p        → p(x), q(x) same in both halves
+Developers:  p h'(S_j) = i_j,   r_j = p h(S_j) − i_j S_j   → S_P &lt; S_U,  r_P &lt; r_U
+Edges:       r_j(x̄_j) = r_A
+Population:  π∫₀^x̄U x D_U dx + π∫₀^x̄P x D_P dx = L,   D = h(S)/q
+Road variant: preserve-side commute = t_P·x inside the preserve (+ t_U beyond x_R)
+             → ∂p_P/∂x = −t_P/q, so p_P(x) < p_U(x)
+Forms used:  v = c^0.75 q^0.25,  h(S) = S^0.75,  y = 1,  r_A = 0.01</div></details>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ============ PROBLEM 2 ============ -->
+<section id="p2" role="tabpanel" aria-labelledby="tab2" hidden>
+<div class="grid">
+  <div class="col">
+    <div class="panel">
+      <h2>What the model is doing</h2>
+      <p class="legendnote">Steps 1–6 are the main model (Part A, then Part B with a money cost). Items tagged <span class="tag ext">robustness</span> or <span class="tag ext">alternative scenario</span> are add-ons.</p>
+      <ol class="steps">
+        <li><div><b>Who can do which job.</b><span>Robots: Gotham only, high-human-capital (HHC) workers only. McDonald's: both cities, anyone, equally productive.</span></div></li>
+        <li><div><b>Labor demand sets wages.</b><span>The robot wage falls as more people build robots. The McDonald's wage <em>rises with local residents</em> (everyone eats there) and falls with more McDonald's workers.</span></div></li>
+        <li><div><b>Housing sets rents.</b><span>Rent rises with the number of residents in a city.</span></div></li>
+        <li><div><b>Low-skill (LHC) workers are indifferent between cities.</b><span>Wage minus rent must be equal in Gotham and Styx, so <em>McDonald's wage gap = rent gap</em>. Watch the two gap numbers match.</span></div></li>
+        <li><div><b>HHC workers pick the better job.</b><span>If robots pay more than Gotham McDonald's, every HHC builds robots (<em>separating</em>). If there are too many HHC, the robot wage falls to the McDonald's wage and some HHC flip burgers (<em>pooling</em>). <em>Try: slide L<sub>h</sub> past ~2.9.</em></span></div></li>
+        <li><div><b>Part B: teleportation.</b><span>Living in Styx while working in Gotham saves the rent gap and costs <i>c</i>. Both types gain the same amount, so whoever has the lower cost goes first. Once people teleport, rent gap = wage gap = <i>c</i>. <em>Try: lower c below ~0.15.</em></span></div></li>
+        <li class="extstep"><div><b>Time cost of teleporting <span class="tag ext">robustness</span></b><span>If teleporting costs a share of your wage instead of a fixed fee, low-wage workers teleport first and high-wage workers never do.</span></div></li>
+        <li class="extstep"><div><b>Expensive Styx <span class="tag ext">alternative scenario</span></b><span>Make Styx's housing scarce and the McDonald's wage ranking flips: Styx McDonald's pays more.</span></div></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h3>Controls</h3>
+      <div class="group main"><div class="ghead"><span class="tag main" style="margin-left:0">Main model</span><span class="gnote">Part A, then Part B with a money teleport cost</span></div>
+      <div class="ctl"><label for="NH">HHC workers <i>L<sub>h</sub></i> (LHC fixed at 3)</label><output id="NHo"></output>
+        <input type="range" id="NH" min="0.3" max="5" step="0.05" value="1"></div>
+      <div class="ctl"><label for="B">Robot productivity <i>B</i></label><output id="Bo"></output>
+        <input type="range" id="B" min="1" max="4" step="0.05" value="2"></div>
+      <div class="check"><input type="checkbox" id="tele"><label for="tele">Part B: teleportation is invented</label></div>
+      <div id="telebox">
+        <div class="ctl"><label for="cc" id="cclab">Teleport cost <i>c</i></label><output id="cco"></output>
+          <input type="range" id="cc" min="0" max="0.3" step="0.005" value="0.08"></div>
+      </div>
+      </div>
+      <div class="group ext"><div class="ghead"><span class="tag ext" style="margin-left:0">Robustness &amp; alternative scenarios</span><span class="gnote">Not in the main results.</span></div>
+      <div class="ctl"><label for="kS">Alternative scenario: Styx housing scarcity <i>κ<sub>S</sub></i></label><output id="kSo"></output>
+        <input type="range" id="kS" min="0.05" max="0.8" step="0.01" value="0.15"><span class="hint">Main model: 0.15, same as Gotham. Raise it to make Styx the expensive city.</span></div>
+      <div class="ctl" id="segrow" style="border-top:0"><span style="font-size:13.5px">Robustness: teleport cost type</span>
+          <div class="seg" role="group" aria-label="Teleport cost type"><button id="ctMoney" aria-pressed="true">money (fixed)</button><button id="ctTime" aria-pressed="false">time (share of wage)</button></div></div>
+      </div>
+      <div class="ctl" style="border-top:0;margin-top:10px"><button class="btn" id="reset2">Reset to the paper's example</button></div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+        <h2 style="margin:0">Equilibrium</h2><span class="chip" id="regime2"></span>
+      </div>
+      <div class="cities" style="margin-top:10px">
+        <div class="city" style="border-top:3px solid var(--gotham)"><h4>Gotham</h4><dl id="cityG"></dl></div>
+        <div class="city" style="border-top:3px solid var(--styx)"><h4>Styx</h4><dl id="cityS"></dl></div>
+      </div>
+      <div class="tele" id="teleline"></div>
+      <div class="readout" style="margin-top:12px">
+        <div><small>Robot wage</small><strong id="owR"></strong></div>
+        <div><small>McD wage gap G−S</small><strong id="owg"></strong></div>
+        <div><small>Rent gap G−S</small><strong id="org"></strong></div>
+        <div><small>HHC utility</small><strong id="oUH"></strong></div>
+        <div><small>LHC utility</small><strong id="oUL"></strong></div>
+      </div>
+      <p class="insight" id="insight2" style="margin:12px 0 0"></p>
+      <div class="extnote" id="ext2" hidden><span id="ext2txt"></span><button class="btn ext" id="main2">Back to main model</button></div>
+    </div>
+    <div class="charts">
+      <div class="panel"><svg class="chart" id="c_w" viewBox="0 0 340 220"></svg>
+        <div class="legend"><span><i style="background:var(--ink)"></i>robot wage</span><span><i style="background:var(--gotham)"></i>McD Gotham</span><span><i style="background:var(--styx)"></i>McD Styx</span></div></div>
+      <div class="panel"><svg class="chart" id="c_t" viewBox="0 0 340 220"></svg>
+        <div class="legend"><span><i style="background:var(--gotham)"></i>rent Gotham</span><span><i style="background:var(--styx)"></i>rent Styx</span><span><i style="background:var(--ink)"></i>teleporters</span></div></div>
+    </div>
+    <div class="panel">
+      <details><summary>The equations behind it</summary>
+<div class="eq">Robots:      w_B = F'(E_B) = B·E_B^(−0.4)
+McDonald's:  w_M^j = Ψ_j(E_j, L_j) = L_j^0.3 · E_j^(−0.5)   (E = McD workers, L = residents)
+Housing:     ρ_j = κ_j · L_j
+Utility:     U = income − rent  (teleporting: wage − c, or (1−τ)·wage)
+LHC:         w_M^G − ρ_G = w_M^S − ρ_S   ⇒  wage gap = rent gap
+With teleporting:  ρ_G − ρ_S = c   and   w_M^G − w_M^S = c</div></details>
+    </div>
+  </div>
+</div>
+</section>
+</div>
+
+<script>
+(function(){
+const $=id=>document.getElementById(id);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function bisect(f,a,b,it=80){let fa=f(a);for(let k=0;k<it;k++){const m=(a+b)/2,fm=f(m);if((fm>0)===(fa>0)){a=m;fa=fm}else b=m}return (a+b)/2}
+
+/* ---------- tabs ---------- */
+const tabs=[$("tab1"),$("tab2")],panes=[$("p1"),$("p2")];
+function showTab(k){tabs.forEach((t,i)=>t.setAttribute("aria-selected",i===k));panes.forEach((p,i)=>p.hidden=i!==k);try{localStorage.setItem("seqlab-tab",k)}catch(e){} if(k===0)run1();else run2()}
+tabs.forEach((t,i)=>t.addEventListener("click",()=>showTab(i)));
+
+/* ---------- small SVG chart ---------- */
+function chart(svg,o){
+  const W=340,H=220,m={l:44,r:12,t:24,b:34};const iw=W-m.l-m.r,ih=H-m.t-m.b;
+  let xs=[],ys=[];o.series.forEach(s=>s.pts.forEach(p=>{if(isFinite(p[1])&&(!o.log||p[1]>0)){xs.push(p[0]);ys.push(p[1])}}));
+  (o.extraY||[]).forEach(v=>ys.push(v));
+  const x0=o.xmin??Math.min(...xs),x1=o.xmax??Math.max(...xs);
+  let y0=o.ymin??Math.min(...ys),y1=o.ymax??Math.max(...ys);
+  const tf=v=>o.log?Math.log10(v):v; let Y0=tf(y0),Y1=tf(y1); if(!o.log&&o.zero!==false){Y0=Math.min(0,Y0)} if(Y1-Y0<1e-9){Y1=Y0+1}
+  const pad=(Y1-Y0)*0.06;Y1+=pad;if(o.log)Y0-=pad;
+  const X=v=>m.l+(v-x0)/(x1-x0)*iw, Yp=v=>m.t+ih-(tf(v)-Y0)/(Y1-Y0)*ih;
+  let s=`<text class="ttl" x="${m.l}" y="14">${o.title}</text><g class="grid">`;
+  let yt=[];if(o.log){for(let e=Math.ceil(Y0);e<=Math.floor(Y1);e++)yt.push(Math.pow(10,e))}else{const st=nice((Y1-Y0)/4);for(let v=Math.ceil(Y0/st)*st;v<=Y1+1e-9;v+=st)yt.push(+v.toFixed(6))}
+  yt.forEach(v=>{s+=`<line x1="${m.l}" x2="${W-m.r}" y1="${Yp(v)}" y2="${Yp(v)}"/>`});s+="</g>";
+  yt.forEach(v=>{s+=`<text x="${m.l-6}" y="${Yp(v)+4}" text-anchor="end">${fmtT(v,o.log)}</text>`});
+  const xst=nice((x1-x0)/5);for(let v=Math.ceil(x0/xst)*xst;v<=x1+1e-9;v+=xst){s+=`<text x="${X(v)}" y="${H-m.b+15}" text-anchor="middle">${+v.toFixed(3)}</text>`}
+  s+=`<line class="axis" x1="${m.l}" x2="${W-m.r}" y1="${m.t+ih}" y2="${m.t+ih}"/>`;
+  s+=`<text x="${m.l+iw/2}" y="${H-4}" text-anchor="middle">${o.xlabel}</text>`;
+  (o.shade||[]).forEach(r=>{s+=`<rect x="${X(r[0])}" y="${m.t}" width="${Math.max(0,X(r[1])-X(r[0]))}" height="${ih}" fill="${css('--soft')}"/>`;if(r[2])s+=`<text x="${(X(r[0])+X(r[1]))/2}" y="${m.t+12}" text-anchor="middle">${r[2]}</text>`});
+  (o.vlines||[]).forEach(v=>{if(v.x>=x0&&v.x<=x1){s+=`<line x1="${X(v.x)}" x2="${X(v.x)}" y1="${m.t}" y2="${m.t+ih}" stroke="${v.c}" stroke-dasharray="3 3" stroke-width="1"/>`;if(v.label)s+=`<text x="${X(v.x)+3}" y="${m.t+10+(v.dy||0)}" style="fill:${v.c}">${v.label}</text>`}});
+  o.series.forEach(se=>{let d="",pen=false;se.pts.forEach(p=>{const ok=isFinite(p[1])&&(!o.log||p[1]>0)&&p[0]>=x0&&p[0]<=x1;if(ok){d+=(pen?"L":"M")+X(p[0]).toFixed(1)+","+Yp(p[1]).toFixed(1);pen=true}else pen=false});
+    s+=`<path d="${d}" fill="none" stroke="${se.c}" stroke-width="${se.w||2}" ${se.dash?`stroke-dasharray="${se.dash}"`:""} stroke-linejoin="round"/>`});
+  (o.dots||[]).forEach(dt=>{if(isFinite(dt[1]))s+=`<circle cx="${X(dt[0])}" cy="${Yp(dt[1])}" r="4" fill="${dt[2]}" stroke="${css('--surface')}" stroke-width="1.5"/>`});
+  svg.innerHTML=s;
+}
+function nice(r){const e=Math.pow(10,Math.floor(Math.log10(r))),f=r/e;return (f<1.5?1:f<3.5?2:f<7.5?5:10)*e}
+function fmtT(v,log){if(log){const e=Math.round(Math.log10(v));return e===0?"1":"10"+sup(e)}return Math.abs(v)>=100?v.toFixed(0):+v.toFixed(3)}
+function sup(n){const m={"-":"⁻","0":"⁰","1":"¹","2":"²","3":"³","4":"⁴","5":"⁵","6":"⁶","7":"⁷","8":"⁸","9":"⁹"};return String(n).split("").map(c=>m[c]).join("")}
+
+/* ======================= PROBLEM 1 ======================= */
+const y=1,alpha=0.25,beta=0.75,iN=1,rA=0.01,kap=Math.pow(1-alpha,1-alpha)*Math.pow(alpha,alpha);
+let P1={};
+const pr=(x,u,a)=>Math.pow(a*kap*(y-P1.t*x)/u,1/alpha);
+const Sf=(x,u,i,a)=>Math.pow(pr(x,u,a)*beta/i,1/(1-beta));
+const rf=(x,u,i,a)=>{const p=pr(x,u,a),S=Sf(x,u,i,a);return p*Math.pow(S,beta)-i*S};
+const qf=(x,u,a)=>alpha*(y-P1.t*x)/pr(x,u,a);
+const Df=(x,u,i,a)=>Math.pow(Sf(x,u,i,a),beta)/qf(x,u,a);
+function xbar(u,i,a){if(rf(0,u,i,a)<=rA)return 0;const xm=y/P1.t-1e-9;if(rf(xm*0.999999,u,i,a)>rA)return xm;return bisect(x=>rf(x,u,i,a)-rA,0,xm*0.999999,60)}
+/* ef = 'effective distance' (commuting cost / t). On the preserve side, km inside the preserve cost k = tP/tN times as much. */
+const ef=(x,side)=>side==="P"?(x<P1.xR?P1.k*x:P1.k*P1.xR+(x-P1.xR)):x;
+function popInt(u,i,a,lo,hi,side){if(hi<=lo)return 0;const n=80,h=(hi-lo)/n;let s=0;for(let k=0;k<=n;k++){const x=lo+k*h,w=(k===0||k===n)?1:(k%2?4:2);s+=w*x*Df(ef(x,side),u,i,a)}return Math.PI*s*h/3}
+function city1(u){const xN=xbar(u,iN,1),xP=xbar(u,P1.iP,P1.a)/P1.k,xR=P1.xR,xO=isFinite(xR)?xN-(P1.k-1)*xR:-Infinity;
+  const pin=popInt(u,P1.iP,P1.a,0,Math.min(xP,xR),"P"),pout=xR<xO?popInt(u,iN,1,xR,xO,"P"):0;
+  return {pop:popInt(u,iN,1,0,xN,"N")+pin+pout,xN,xP,xO,popP:pin+pout}}
+function solve1(){const lu=bisect(l=>city1(Math.exp(l)).pop-P1.L,Math.log(1e-3),Math.log(5),55);const u=Math.exp(lu);return Object.assign({u},city1(u))}
+
+function rayP(x,e){ // preserve-side ray values: returns {i,a,dev}
+  const xR=P1.xR; if(x<xR){return {i:P1.iP,a:P1.a,dev:x<=e.xP}} return {i:iN,a:1,dev:x<=e.xO}}
+
+function drawFoot(e){
+  /* Draw at the screen's real pixel density so the map stays sharp (W = CSS size, backing store = W×dpr). */
+  const cv=$("fp"),ctx=cv.getContext("2d"),dpr=Math.min(3,window.devicePixelRatio||1),W=cv.clientWidth||420;
+  cv.width=cv.height=Math.round(W*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);
+  const N=Math.min(Math.round(W*dpr),640);
+  const R=1.12*Math.max(e.xN,e.xP,isFinite(P1.xR)?Math.min(P1.xR,1.6*e.xN):0,1);
+  const img=ctx.createImageData(N,N);const land=hex(css("--land")),tint=hex(css("--preserve-tint"));
+  const lo=-0.8,hi=2.2;
+  for(let r=0;r<N;r++)for(let c=0;c<N;c++){
+    const X=(c+0.5)/N*2*R-R,Yv=R-(r+0.5)/N*2*R,d=Math.hypot(X,Yv);let col;
+    if(Yv<0){col=d<=e.xN?vir((Math.log10(Df(d,e.u,iN,1))-lo)/(hi-lo)):land}
+    else{const q=rayP(d,e);if(q.dev){col=vir((Math.log10(Df(ef(d,"P"),e.u,q.i,q.a))-lo)/(hi-lo))}else col=(d<P1.xR)?tint:land}
+    const k=4*(r*N+c);img.data[k]=col[0];img.data[k+1]=col[1];img.data[k+2]=col[2];img.data[k+3]=255}
+  const off=document.createElement("canvas");off.width=N;off.height=N;off.getContext("2d").putImageData(img,0,0);
+  ctx.imageSmoothingEnabled=true;ctx.clearRect(0,0,W,W);ctx.drawImage(off,0,0,W,W);
+  const s=W/(2*R),cx=W/2,cy=W/2;
+  ctx.strokeStyle=css("--fg");ctx.globalAlpha=.5;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,cy);ctx.lineTo(W,cy);ctx.stroke();ctx.globalAlpha=1;
+  if(isFinite(P1.xR)&&P1.xR<R){ctx.setLineDash([5,4]);ctx.strokeStyle=css("--preserve");ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,P1.xR*s,Math.PI,2*Math.PI);ctx.stroke();ctx.setLineDash([])}
+  ctx.fillStyle=css("--fg");ctx.font="600 12px "+css("--f-body");ctx.textAlign="center";
+  ctx.fillText("Nature preserve side",cx,16);ctx.fillText("Unrestricted land side",cx,W-8);
+  ctx.fillStyle="#e23b3b";ctx.font="18px sans-serif";ctx.fillText("★",cx,cy+6);
+  ctx.fillStyle=css("--muted");ctx.font="11px "+css("--f-body");ctx.textAlign="left";
+  const bar=Math.round(5*s);ctx.fillRect(10,W-28,bar,2);ctx.fillText("5 km",10,W-32);
+}
+function hex(h){h=h.replace("#","");if(h.length===3)h=h.split("").map(c=>c+c).join("");return [0,2,4].map(i=>parseInt(h.substr(i,2),16))}
+const VIR=[[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[109,205,89],[180,222,44],[253,231,37]];
+function vir(t){t=Math.max(0,Math.min(1,t))*(VIR.length-1);const i=Math.min(VIR.length-2,Math.floor(t)),f=t-i;return VIR[i].map((v,k)=>Math.round(v+(VIR[i+1][k]-v)*f))}
+
+function run1(){
+  P1={iP:+$("iP").value,L:+$("Lp").value,t:+$("tc").value,k:+$("tP").value,a:+$("am").value,xR:$("finite").checked?+$("xR").value:Infinity};
+  $("tPo").textContent=P1.k.toFixed(2)+"×";
+  $("iPo").textContent=P1.iP.toFixed(2)+"×";$("Lpo").textContent=P1.L.toFixed(0);$("tco").textContent=P1.t.toFixed(3);
+  $("amo").textContent=P1.a.toFixed(3);$("xRo").textContent=isFinite(P1.xR)?P1.xR.toFixed(1)+" km":"—";$("xRrow").style.opacity=$("finite").checked?1:.45;$("xR").disabled=!$("finite").checked;
+  const astar=Math.pow(P1.iP,alpha*beta);$("astar").textContent=P1.k>1.0001?"no single a* when commute costs differ":"a* = "+astar.toFixed(3);
+  const e=solve1();
+  $("oxN").textContent=e.xN.toFixed(1)+" km";const edgeP=(isFinite(P1.xR)&&P1.xR<e.xO)?e.xO:Math.min(e.xP,P1.xR);$("oxP").textContent=edgeP.toFixed(1)+" km";$("ou").textContent=e.u.toFixed(4);$("osh").textContent=(100*e.popP/e.pop).toFixed(0)+"%";
+  // regime
+  let reg,col,ins;const xR=P1.xR;
+  if(!isFinite(xR)||xR>=Math.max(e.xO,e.xP)){reg=isFinite(xR)?"Regime 1 · preserve edge doesn't bind":"Part A · half-plane preserve";col="--accent";
+    ins=P1.a>1.0005?(e.xP>e.xN?"The amenity outweighs the building cost (a > a*), so the city tilts toward the preserve: higher housing prices, smaller lots and a farther edge on that side.":"Even with the amenity, the building cost still dominates (a < a*), so the preserve side ends sooner."):
+    (P1.k>1.0001?"Commuting through the preserve costs more, so preserve-side households bid less for housing: the housing price curve splits, lots get bigger and buildings shorter, and the preserve edge comes "+(e.xN-e.xP).toFixed(1)+" km sooner.":(P1.iP<=1.001?"With no extra cost the two halves are identical and the city is a circle.":"Housing prices are the same in both halves, but preserve land earns "+(100*Math.pow(1/P1.iP,beta/(1-beta))).toFixed(0)+"% of unrestricted land rent at every distance, so its edge comes "+(e.xN-e.xP).toFixed(1)+" km sooner. Density is lower by the same ratio."))}
+  else if(xR>e.xP&&xR<e.xO){reg="Regime 2 · leapfrog";col="--warn";ins="Development on the preserve side stops at "+e.xP.toFixed(1)+" km, the band out to "+xR.toFixed(1)+" km stays wild, and building resumes on the unrestricted land beyond, out to "+e.xO.toFixed(1)+" km. Land rent jumps up at the preserve edge."}
+  else if(xR<e.xO){reg="Regime 3 · contiguous with a seam";col="--good";ins="The preserve is fully built over (at lower density), and the city carries on past it. At "+xR.toFixed(1)+" km land rent and density jump up, so density isn't monotone in distance on that side."}
+  else {reg="Preserve edge caps the city";col="--good";ins="With a strong amenity, preserve land is worth building on out to its edge, but the unrestricted land beyond is too far out to pay agricultural rent, so the city stops at the preserve boundary."}
+  const ch=$("regime1");ch.textContent=reg;ch.style.color=css(col);$("insight1").textContent=ins;
+  const on1=[];if(P1.a>1.0001)on1.push("amenity a = "+P1.a.toFixed(3));if(P1.k>1.0001)on1.push("preserve commute cost "+P1.k.toFixed(2)+"×");
+  $("ext1").hidden=!on1.length;$("ext1txt").innerHTML="<b>Extension on:</b> "+on1.join(", ")+". These results go beyond the main model.";
+  drawFoot(e);
+  // charts along rays
+  const xm=Math.max(e.xN,e.xP)*1.04,n=220;const pN=[],pP=[],rN=[],rP=[],dN=[],dP=[],sN=[],sP=[];
+  for(let k=0;k<=n;k++){const x=k/n*xm;
+    pN.push([x,x<=e.xN?pr(x,e.u,1):NaN]);
+    rN.push([x,x<=e.xN?rf(x,e.u,iN,1):NaN]);dN.push([x,x<=e.xN?Df(x,e.u,iN,1):NaN]);sN.push([x,x<=e.xN?Sf(x,e.u,iN,1):NaN]);
+    const q=rayP(x,e),z=ef(x,"P");pP.push([x,q.dev?pr(z,e.u,q.a):NaN]);rP.push([x,q.dev?rf(z,e.u,q.i,q.a):NaN]);dP.push([x,q.dev?Df(z,e.u,q.i,q.a):NaN]);sP.push([x,q.dev?Sf(z,e.u,q.i,q.a):NaN]);}
+  const vl=[{x:e.xN,c:css("--normal"),label:"x̄U"}];if(!(P1.xR<=e.xP))vl.push({x:e.xP,c:css("--preserve"),label:"x̄P",dy:12});if(isFinite(P1.xR))vl.push({x:P1.xR,c:css("--preserve"),label:"xR",dy:24});
+  const same=Math.abs(P1.a-1)<1e-6&&P1.k<1.0001;
+  chart($("c_p"),{title:same?"Housing price p(x): one curve for both halves":"Housing price p(x)",xlabel:"distance to CBD (km)",series:same?[{pts:pN,c:css("--ink")}]:[{pts:pN,c:css("--normal")},{pts:pP,c:css("--preserve"),dash:"5 3"}],xmin:0,xmax:xm});
+  chart($("c_r"),{title:"Land rent r(x) (log scale)",xlabel:"distance to CBD (km)",log:true,series:[{pts:rN,c:css("--normal")},{pts:rP,c:css("--preserve")},{pts:[[0,rA],[xm,rA]],c:css("--muted"),w:1,dash:"4 3"}],xmin:0,xmax:xm,extraY:[rA*0.7],vlines:vl});
+  chart($("c_d"),{title:"Population density D = h(S)/q",xlabel:"distance to CBD (km)",series:[{pts:dN,c:css("--normal")},{pts:dP,c:css("--preserve")}],xmin:0,xmax:xm,vlines:isFinite(P1.xR)?[{x:P1.xR,c:css("--preserve"),label:"xR"}]:[]});
+  chart($("c_s"),{title:"Building height S(x) (capital per acre)",xlabel:"distance to CBD (km)",series:[{pts:sN,c:css("--normal")},{pts:sP,c:css("--preserve")}],xmin:0,xmax:xm});
+}
+["iP","Lp","tc","tP","xR","am","finite"].forEach(id=>$(id).addEventListener("input",run1));
+$("main1").addEventListener("click",()=>{$("am").value=1;$("tP").value=1;run1()});
+$("reset1").addEventListener("click",()=>{$("iP").value=1.6;$("tP").value=1;$("Lp").value=3000;$("tc").value=0.02;$("am").value=1;$("xR").value=14.5;$("finite").checked=false;run1()});
+
+/* ======================= PROBLEM 2 ======================= */
+let Q={};
+const NL=3,sig=0.4,eps=0.3,phi=0.5,kG=0.15;
+const wRf=n=>Q.B*Math.pow(Math.max(n,1e-12),-sig);
+const Psi=(E,N)=>Math.pow(Math.max(N,1e-12),eps)*Math.pow(Math.max(E,1e-12),-phi);
+const RG=N=>kG*N, RS=N=>Q.kS*N;
+function noTele(){
+  const NH=Q.NH,Nb=NH+NL;
+  const Phi=LS=>Psi(NL-LS,NH+NL-LS)-RG(NH+NL-LS)-Psi(LS,LS)+RS(LS);
+  const LS=bisect(Phi,1e-9,NL-1e-9);const wMG=Psi(NL-LS,NH+NL-LS),wR=wRf(NH);
+  if(wR>wMG){return {reg:"I",NR:NH,HM:0,LS,LG:NL-LS,T:0,NS:LS,NG:Nb-LS,EG:NL-LS,ES:LS,wR,wMG,wMS:Psi(LS,LS)}}
+  // pooling
+  const inner=NR=>{const M=NH-NR+NL;const g=NS=>Psi(M-NS,NR+M-NS)-RG(NR+M-NS)-Psi(NS,NS)+RS(NS);const NS=bisect(g,1e-9,M-1e-9);return {M,NS}};
+  const NR=bisect(nr=>{const z=inner(nr);return wRf(nr)-Psi(z.M-z.NS,nr+z.M-z.NS)},1e-6,NH);
+  const z=inner(NR);const EG=z.M-z.NS,NG=NR+EG,wMG2=Psi(EG,NG);
+  return {reg:"II",NR,HM:NH-NR,LS:null,T:0,NS:z.NS,NG,EG,ES:z.NS,wR:wRf(NR),wMG:wMG2,wMS:Psi(z.NS,z.NS)};
+}
+function solve2(){
+  const base=noTele();base.mode="none";
+  if(!Q.tele||base.reg!=="I")return base;
+  const NH=Q.NH,Nb=NH+NL,gap0=RG(base.NG)-RS(base.NS);
+  if(Q.type==="money"){
+    const c=Q.c;if(gap0<=c)return Object.assign(base,{mode:"off"});
+    const NS=bisect(ns=>RG(Nb-ns)-RS(ns)-c,base.NS,Nb-1e-9);
+    const LS=bisect(ls=>Psi(NL-ls,Nb-NS)-Psi(ls,NS)-c,1e-9,Math.min(NL,NS)-1e-9);
+    const r={reg:"I",NR:NH,HM:0,LS,LG:null,T:NS-LS,NS,NG:Nb-NS,EG:NL-LS,ES:LS,wR:wRf(NH),wMG:Psi(NL-LS,Nb-NS),wMS:Psi(LS,NS),mode:"money"};
+    if(r.wR<=r.wMG)return Object.assign(base,{mode:"blocked"});return r;
+  } else {
+    const tau=Q.c;if(tau*base.wMG>=gap0)return Object.assign(base,{mode:"off"});
+    const inner=ns=>bisect(ls=>(1-tau)*Psi(NL-ls,Nb-ns)-Psi(ls,ns),1e-9,Math.min(NL,ns)-1e-9);
+    const NS=bisect(ns=>{const ls=inner(ns);return RG(Nb-ns)-RS(ns)-tau*Psi(NL-ls,Nb-ns)},base.NS,Nb-1e-9);
+    const LS=inner(NS);
+    return {reg:"I",NR:NH,HM:0,LS,T:NS-LS,NS,NG:Nb-NS,EG:NL-LS,ES:LS,wR:wRf(NH),wMG:Psi(NL-LS,Nb-NS),wMS:Psi(LS,NS),mode:"time"};
+  }
+}
+function finish(r){r.rG=RG(r.NG);r.rS=RS(r.NS);r.UH=r.reg==="I"?r.wR-r.rG:r.wMG-r.rG;r.UL=r.wMS-r.rS;
+  // composition
+  if(r.reg==="I"){r.HG=Q.NH;r.HS=0;r.LGres=r.NG-Q.NH;r.LSres=r.NS-r.T}else{r.HG=r.NR;r.LGres=r.NG-r.NR;r.LSres=r.NS}
+  return r}
+function run2(){
+  const tele=$("tele").checked;
+  Q={NH:+$("NH").value,B:+$("B").value,kS:+$("kS").value,tele,type:$("ctTime").getAttribute("aria-pressed")==="true"?"time":"money",c:+$("cc").value};
+  $("NHo").textContent=Q.NH.toFixed(2);$("Bo").textContent=Q.B.toFixed(2);$("kSo").textContent=Q.kS.toFixed(2);
+  $("cco").textContent=Q.type==="time"?(100*Q.c).toFixed(1)+"% of wage":Q.c.toFixed(3);
+  $("cclab").innerHTML=Q.type==="time"?"Time cost <i>τ</i> (share of earnings)":"Teleport cost <i>c</i> (money per period)";
+  $("telebox").style.opacity=tele?1:.45;$("segrow").style.opacity=tele?1:.45;$("segrow").title=tele?"":"Turn on teleportation to use this";["cc","ctMoney","ctTime"].forEach(id=>$(id).disabled=!tele);
+  const r=finish(solve2());
+  const f=v=>v.toFixed(3);
+  const ch=$("regime2");
+  if(r.reg==="I"){ch.textContent="Separating · robots pay more";ch.style.color=css("--accent")}else{ch.textContent="Pooling · robot wage = McD wage";ch.style.color=css("--warn")}
+  const live=r.mode==="money"||r.mode==="time";
+  const tel=live?r.T:0;
+  $("cityG").innerHTML=`<dt>Residents</dt><dd>${f(r.NG)}</dd><dt>HHC building robots</dt><dd>${f(r.reg==="I"?Q.NH-(live&&r.mode==="money"?0:0):r.NR)}</dd>${r.reg==="II"?`<dt>HHC at McD</dt><dd>${f(r.HM)}</dd>`:""}<dt>McD workers</dt><dd>${f(r.EG)}</dd><dt>McD wage</dt><dd>${f(r.wMG)}</dd><dt>Rent</dt><dd>${f(r.rG)}</dd>`;
+  $("cityS").innerHTML=`<dt>Residents</dt><dd>${f(r.NS)}</dd><dt>McD workers</dt><dd>${f(r.ES)}</dd><dt>McD wage</dt><dd>${f(r.wMS)}</dd><dt>Rent</dt><dd>${f(r.rS)}</dd>`;
+  let tl="";
+  if(!Q.tele)tl="Everyone works where they live (Part A).";
+  else if(r.reg!=="I")tl="The teleport panel models the separating regime; lower L<sub>h</sub> below the pooling threshold to use it.";
+  else if(r.mode==="off")tl="Teleportation exists but nobody uses it: the cost exceeds the rent gap ("+f(r.rG-r.rS)+").";
+  else if(r.mode==="money")tl=`⇢ <b>${f(tel)}</b> people live in Styx and teleport to Gotham jobs. With a fixed money cost both types gain the same amount, so it doesn't matter which type they are.`;
+  else tl=`⇢ <b>${f(tel)}</b> LHC workers live in Styx and teleport to Gotham McDonald's. HHC don't: their time is worth more, so the cost is higher for them.`;
+  $("teleline").innerHTML=tl;
+  $("owR").textContent=f(r.wR);$("owg").textContent=f(r.wMG-r.wMS);$("org").textContent=f(r.rG-r.rS);$("oUH").textContent=f(r.UH);$("oUL").textContent=f(r.UL);
+  let ins;
+  if(live)ins="Teleporting pins both gaps at the cost: rent gap "+f(r.rG-r.rS)+" ≈ McD wage gap "+f(r.wMG-r.wMS)+(Q.type==="time"?" = τ × Gotham McD wage ("+f(Q.c*r.wMG)+")":" = c ("+f(Q.c)+")")+". HHC gain even without teleporting, because the people who leave make Gotham cheaper.";
+  else if(r.reg==="I")ins="LHC are indifferent between the cities, so Gotham's McD wage premium ("+f(r.wMG-r.wMS)+") exactly equals its rent premium ("+f(r.rG-r.rS)+"). HHC earn a skill premium of "+f(r.wR-r.wMG)+" over Gotham McD.";
+  else ins="There are too many HHC for the robot factories. The robot wage has fallen to the McD wage, "+f(r.HM)+" HHC work at McDonald's, and both types get the same utility.";
+  if(r.rS>r.rG)ins+=" Styx is the expensive city here, so Styx McDonald's pays more.";
+  $("insight2").textContent=ins;
+  const on2=[];if(Math.abs(Q.kS-0.15)>1e-6)on2.push("Styx housing scarcity κ_S = "+Q.kS.toFixed(2));if(Q.tele&&Q.type==="time")on2.push("time cost of teleporting");
+  $("ext2").hidden=!on2.length;$("ext2txt").innerHTML="<b>Robustness setting on:</b> "+on2.join(", ")+". These results go beyond the main model.";
+  // chart: wages vs NH (no teleport)
+  const save=Object.assign({},Q);const ws=[],wg=[],wst=[];let pool=null;
+  for(let k=0;k<=40;k++){const nh=0.3+k*(4.7/40);Q.NH=nh;Q.tele=false;const z=noTele();ws.push([nh,z.wR]);wg.push([nh,z.wMG]);wst.push([nh,z.wMS]);if(z.reg==="II"&&pool===null)pool=nh}
+  Q=save;
+  chart($("c_w"),{title:"Part A · wages as the HHC population grows",xlabel:"HHC workers L_h",series:[{pts:ws,c:css("--ink")},{pts:wg,c:css("--gotham")},{pts:wst,c:css("--styx")}],xmin:0.3,xmax:5,shade:pool?[[pool,5,"pooling"]]:[],vlines:[{x:Q.NH,c:css("--accent"),label:"now",dy:16}],dots:[[Q.NH,r.wR,css("--ink")],[Q.NH,r.wMG,css("--gotham")],[Q.NH,r.wMS,css("--styx")]]});
+  // chart: rents vs teleport cost
+  const svgT=$("c_t");
+  if(r.reg!=="I"){svgT.innerHTML=`<text class="ttl" x="44" y="14">Part B · teleport cost sweep</text><text x="170" y="110" text-anchor="middle">Available in the separating regime</text>`;return}
+  const cmax=Q.type==="time"?0.3:0.3,rg=[],rs=[],tt=[];const sv=Object.assign({},Q);
+  for(let k=0;k<=40;k++){const c=0.005+k*(cmax-0.005)/40;Q.c=c;Q.tele=true;const z=finish(solve2());rg.push([c,z.rG]);rs.push([c,z.rS]);tt.push([c,(z.mode==="money"||z.mode==="time")?z.T:0])}
+  Q=sv;
+  chart(svgT,{title:"Part B · rents and teleporters vs. cost",xlabel:Q.type==="time"?"time cost τ (share of wage)":"money cost c",series:[{pts:rg,c:css("--gotham")},{pts:rs,c:css("--styx")},{pts:tt,c:css("--ink"),dash:"5 3"}],xmin:0,xmax:cmax,vlines:Q.tele?[{x:Q.c,c:css("--accent"),label:"now"}]:[]});
+}
+["NH","B","kS","cc","tele"].forEach(id=>$(id).addEventListener("input",run2));
+$("ctMoney").addEventListener("click",()=>{$("ctMoney").setAttribute("aria-pressed","true");$("ctTime").setAttribute("aria-pressed","false");run2()});
+$("ctTime").addEventListener("click",()=>{$("ctTime").setAttribute("aria-pressed","true");$("ctMoney").setAttribute("aria-pressed","false");run2()});
+$("main2").addEventListener("click",()=>{$("kS").value=0.15;$("ctMoney").click()});
+$("reset2").addEventListener("click",()=>{$("NH").value=1;$("B").value=2;$("kS").value=0.15;$("cc").value=0.08;$("tele").checked=false;$("ctMoney").click()});
+
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change",()=>{run1();run2()});
+let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(()=>{if(!$("p1").hidden)run1()},150)});
+new MutationObserver(()=>{run1();run2()}).observe(document.documentElement,{attributes:true,attributeFilter:["data-theme"]});
+let start=0;try{start=+(localStorage.getItem("seqlab-tab")||0)}catch(e){}
+run1();run2();showTab(start===1?1:0);
+})();
+</script>
